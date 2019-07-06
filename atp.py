@@ -16,10 +16,10 @@ def train_threshold_predictor(density_map_path, thresholds_path):
     tp.save('./model.json')
 
 
-
 def get_files(path, allowed_extensions):
     """Returns files in path with allowed extension"""
     return [os.path.join(path, f) for f in os.listdir(path) if f.split('.')[-1] in allowed_extensions]
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Automatic Threshold Level Selection')

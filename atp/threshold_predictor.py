@@ -1,6 +1,7 @@
 import json
 from .metrics import sa_v, r_nz
 from scipy.optimize import root_scalar
+from numpy.linalg import lstsq
 
 
 def get_threshold_predictor(name, M=None):
@@ -24,7 +25,8 @@ def get_threshold_predictor(name, M=None):
         Trained threshold predictor
     """
     with open(name, 'r') as f:
-        return ThresholdPredictor(M, json.load(f))
+        json_data = json.load(f)
+        return ThresholdPredictor(M, json_data['M_t'], json_data['W'])
 
 
 class ThresholdPredictor:
@@ -40,7 +42,7 @@ class ThresholdPredictor:
     To re-instantiate the predictor with those target values use 'load'.
     """
 
-    def __init__(self, M=None, M_t=None):
+    def __init__(self, M=None, M_t=None, W=None):
         """
         Sets the metrics and metric target values
 
@@ -53,9 +55,13 @@ class ThresholdPredictor:
         M_t: list
             Defines the metric target values. If they are not set the
             predictor has to be trained first.
+        W: list
+            List of weights to calculate the weighted average of the thresholds
+            calculated by each metric
         """
         self.M = M if M else [sa_v, r_nz]
         self.M_t = M_t
+        self.W = W
 
     def train(self, D, T):
         """
@@ -77,6 +83,13 @@ class ThresholdPredictor:
         self.M_t = []
         for m in self.M:
             self.M_t.append(sum(m(D[i], T[i]) for i in range(len(D))) / len(D))
+
+        a = []
+        for d in D:
+            a.append([root_scalar(lambda t: self.M_t[i] - self.M[i](d, t), bracket=[0, 10]).root
+                      for i in range(len(self.M))])
+
+        self.W = lstsq(a, T, rcond=None)[0].tolist()
 
     def predict(self, d):
         """
@@ -102,7 +115,7 @@ class ThresholdPredictor:
             thresholds.append(res.root)
             converged.append(res.converged)
 
-        return ThresholdResult(sum(thresholds) / len(self.M), converged)
+        return ThresholdResult(sum(thresholds[i] * self.W[i] for i in range(len(thresholds))) / sum(self.W), converged)
 
     def save(self, name):
         """
@@ -115,7 +128,10 @@ class ThresholdPredictor:
             Path where JSON file is saved at
         """
         with open(name, 'w') as f:
-            json.dump(self.M_t, f)
+            json.dump({
+                'M_t': self.M_t,
+                'W': self.W
+            }, f)
 
 
 class ThresholdResult:
