@@ -16,7 +16,7 @@ In order to use the automated threshold prediction we have to import the `Thresh
 ```
 > from atp import ThresholdPredictor
 > tp = ThresholdPredictor()
-> tp.train(D)
+> tp.train(D, T)
 > tp.save('PATH_FOR_JSON')
 ```
 
